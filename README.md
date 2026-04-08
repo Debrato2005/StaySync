@@ -64,6 +64,7 @@ StaySync was built as the **Week 10 capstone project** for the *Object-Oriented 
 - Check out a guest and release their room back to `AVAILABLE`
 - Background billing thread calculates final bill (nights × tariff) without freezing the UI
 - Display itemised bill in a confirmation dialog
+- **Minimum One-Night Billing Policy**: StaySync enforces a minimum one-night charge on all checkouts. If a guest checks out on the same day they checked in — regardless of the hour — they are billed for exactly one night. This is calculated in `Booking.getNights()` using `ChronoUnit.DAYS.between(checkInDate, checkOutDate)`, with the result floored to a minimum of 1. Since all billing flows through this single method, the policy is enforced consistently across the UI, the background billing thread, and any printed receipts.
 
 ### Data Persistence
 - All room, guest, and booking data serialized to `.dat` files on disk
@@ -86,7 +87,7 @@ StaySync was built as the **Week 10 capstone project** for the *Object-Oriented 
 | Concurrency | Java `Thread`, `synchronized`, `wait/notify` |
 | Data Storage | Java Object Serialization (`ObjectOutputStream` / `ObjectInputStream`) |
 | Collections | `ArrayList`, `HashMap`, `Collections` utility |
-| Build Tool | Manual `javac` / IntelliJ IDEA / Eclipse |
+| Build Tool | **Maven** (JavaFX dependency management via `pom.xml`) |
 | IDE Recommended | IntelliJ IDEA 2023+ or Eclipse 2023+ with e(fx)clipse plugin |
 
 ---
@@ -125,51 +126,66 @@ MVC Pattern
 StaySync/
 │
 ├── src/
-│   └── com/staysync/
-│       ├── main/
-│       │   └── MainApp.java              # JavaFX Application entry point
-│       │
-│       ├── model/
-│       │   ├── Room.java                 # Room entity (Serializable)
-│       │   ├── Guest.java                # Guest entity (Serializable)
-│       │   ├── Booking.java              # Booking entity (Serializable)
-│       │   └── RoomType.java             # Enum: STANDARD, DELUXE, SUITE
-│       │
-│       ├── controller/
-│       │   ├── RoomController.java       # Add/view/filter rooms
-│       │   ├── GuestController.java      # Register/view guests
-│       │   ├── BookingController.java    # Create/view bookings
-│       │   └── CheckoutController.java   # Checkout + billing
-│       │
-│       ├── view/
-│       │   ├── RoomTab.java              # JavaFX tab for Room Management
-│       │   ├── GuestTab.java             # JavaFX tab for Guest Management
-│       │   ├── BookingTab.java           # JavaFX tab for Bookings
-│       │   └── CheckoutTab.java          # JavaFX tab for Checkout
-│       │
-│       ├── util/
-│       │   ├── DataStore.java            # Singleton: in-memory data store
-│       │   ├── PersistenceManager.java   # Serialization / Deserialization
-│       │   ├── BillingThread.java        # Background billing thread
-│       │   └── Repository.java           # Generic <T> repository class
-│       │
-│       └── resources/
-│           └── styles.css                # JavaFX stylesheet
+│   └── main/
+│       └── java/
+│           └── com/staysync/
+│               ├── main/
+│               │   └── MainApp.java              # JavaFX Application entry point
+│               │
+│               ├── model/
+│               │   ├── Room.java                 # Abstract base class (Serializable)
+│               │   ├── StandardRoom.java         # Extends Room — no surcharge
+│               │   ├── DeluxeRoom.java           # Extends Room — Wi-Fi + breakfast, 20% surcharge
+│               │   ├── SuiteRoom.java            # Extends Room — luxury, 40% premium
+│               │   ├── Guest.java                # Guest entity (Serializable)
+│               │   ├── Booking.java              # Booking entity (Serializable)
+│               │   └── RoomType.java             # Enum: STANDARD, DELUXE, SUITE
+│               │
+│               ├── controller/
+│               │   ├── RoomController.java       # Add/view/filter rooms
+│               │   ├── GuestController.java      # Register/view guests
+│               │   ├── BookingController.java    # Create/view bookings
+│               │   └── CheckoutController.java   # Checkout + billing
+│               │
+│               ├── view/
+│               │   ├── RoomTab.java              # JavaFX tab for Room Management
+│               │   ├── GuestTab.java             # JavaFX tab for Guest Management
+│               │   ├── BookingTab.java           # JavaFX tab for Bookings
+│               │   └── CheckoutTab.java          # JavaFX tab for Checkout
+│               │
+│               └── util/
+│                   ├── DataStore.java            # Singleton: in-memory data store
+│                   ├── PersistenceManager.java   # Serialization / Deserialization
+│                   ├── BillingThread.java        # Background billing thread
+│                   └── Repository.java           # Generic <T> repository class
 │
-├── data/                                 # Auto-created; stores .dat files
+├── data/                                         # Auto-created at runtime; stores .dat files
 │   ├── rooms.dat
 │   ├── guests.dat
 │   └── bookings.dat
 │
+├── pom.xml                                       # Maven build — JavaFX dependency only
 ├── README.md
-└── StaySync.iml                          # IntelliJ project file
+└── StaySync.iml                                  # IntelliJ project file
 ```
 
 ---
 
 ## Core Modules
 
-### `Room.java` — Model
+### `pom.xml` — Maven Build
+
+JavaFX is the only external dependency. No web server, no database framework.
+
+```xml
+<dependency>
+    <groupId>org.openjfx</groupId>
+    <artifactId>javafx-controls</artifactId>
+    <version>17.0.6</version>
+</dependency>
+```
+
+### `Room.java` — Abstract Model
 
 ```java
 public class Room implements Serializable {
@@ -218,7 +234,7 @@ public class Booking implements Serializable {
     private boolean active;
 
     public double calculateTotal() {
-        long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
+        long nights = Math.max(1, ChronoUnit.DAYS.between(checkIn, checkOut));
         return room.getPricePerNight() * nights;
     }
 }
@@ -399,30 +415,38 @@ StaySync uses a **tab-based JavaFX interface** with the following layout:
 ### Prerequisites
 
 - **Java 17 or higher** — [Download JDK](https://adoptium.net/)
-- **JavaFX 17 or higher** — [Download JavaFX SDK](https://openjfx.io/)
+- **Maven 3.8+** — [Download Maven](https://maven.apache.org/download.cgi) *(handles JavaFX automatically via pom.xml)*
 - IntelliJ IDEA (recommended) or Eclipse with e(fx)clipse
 
 ### Running the Application
 
-#### Option 1 — IntelliJ IDEA
+#### Option 1 — Maven (Recommended)
+
+```bash
+# Clone the repo, then:
+mvn clean javafx:run
+```
+
+Maven downloads JavaFX automatically — no manual SDK setup required.
+
+#### Option 2 — IntelliJ IDEA (without Maven)
 
 1. Clone or download the project
-2. Open the project folder in IntelliJ IDEA
-3. Go to **File → Project Structure → Libraries** and add the JavaFX SDK `lib` folder
-4. Edit **Run Configuration** → VM Options:
+2. Go to **File → Project Structure → Libraries** and add the JavaFX SDK `lib` folder
+3. Edit **Run Configuration** → VM Options:
    ```
    --module-path /path/to/javafx-sdk/lib --add-modules javafx.controls,javafx.fxml
    ```
-5. Run `MainApp.java`
+4. Run `MainApp.java`
 
-#### Option 2 — Command Line
+#### Option 3 — Command Line (without Maven)
 
 ```bash
 # Compile
 javac --module-path /path/to/javafx-sdk/lib \
       --add-modules javafx.controls,javafx.fxml \
       -d out \
-      src/com/staysync/**/*.java
+      src/main/java/com/staysync/**/*.java
 
 # Run
 java --module-path /path/to/javafx-sdk/lib \
@@ -431,13 +455,11 @@ java --module-path /path/to/javafx-sdk/lib \
      com.staysync.main.MainApp
 ```
 
-#### Option 3 — Eclipse
+#### Option 4 — Eclipse
 
 1. Install the **e(fx)clipse** plugin (Help → Eclipse Marketplace)
-2. Import the project as a Java project
-3. Add JavaFX SDK to the build path
-4. Set VM arguments in Run Configuration (same as above)
-5. Run `MainApp.java`
+2. Import the project as a Maven project
+3. Run `MainApp.java` — VM arguments are picked up from `pom.xml` automatically
 
 ---
 
@@ -474,9 +496,9 @@ java --module-path /path/to/javafx-sdk/lib \
 | Concept | Where Applied |
 |---|---|
 | **Encapsulation** | All model fields are `private`; accessed via getters/setters |
-| **Inheritance** | `DeluxeRoom extends Room`; `LuxuryRoom extends Room` |
+| **Inheritance** | `StandardRoom`, `DeluxeRoom`, `SuiteRoom` all extend abstract `Room` |
 | **Polymorphism** | `Room room = new DeluxeRoom(...)` — `calculateTariff()` resolves at runtime |
-| **Abstraction** | `abstract class Room` with abstract `calculateTariff()` |
+| **Abstraction** | `abstract class Room` with abstract `calculateTariff(int nights)` |
 | **Interface** | `Amenities` interface with `provideWifi()`, `provideBreakfast()` |
 | **Constructor Overloading** | `Room(int, RoomType)` and `Room(int, RoomType, double)` |
 | **`this` / `super`** | `super(roomNumber, roomType)` in `DeluxeRoom` constructor |
@@ -517,7 +539,7 @@ try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(path))
 
 | Week | Topic | Applied in StaySync |
 |---|---|---|
-| 1 | OOP — Classes, Inheritance, Polymorphism, Abstraction | `Room`, `DeluxeRoom`, `LuxuryRoom`, abstract `calculateTariff()`, `Amenities` interface |
+| 1 | OOP — Classes, Inheritance, Polymorphism, Abstraction | Abstract `Room`; `StandardRoom`, `DeluxeRoom`, `SuiteRoom`; abstract `calculateTariff()`; `Amenities` interface |
 | 2 | Wrapper Classes, Autoboxing, Enums | `RoomType` enum with constructor; `Integer`/`Double` in collections |
 | 3 | Multithreading Basics | `BillingThread extends Thread`; `sleep()`, `join()` |
 | 4 | Synchronization, wait/notify | `synchronized bookRoom()`; wait/notify for booking queue |
