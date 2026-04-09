@@ -5,6 +5,7 @@ import java.util.function.Consumer;
 import com.staysync.model.Booking;
 import com.staysync.util.BillingThread;
 import com.staysync.util.DataStore;
+import com.staysync.util.PersistenceManager;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -21,7 +22,7 @@ public class CheckoutController {
                          ObservableList::addAll);
     }
 
-    public void checkout(Booking booking, Consumer<Double> onBillReady) {
+    public void checkout(Booking booking, boolean removeGuest, Consumer<Double> onBillReady) {
         if (booking == null) {
             new Alert(Alert.AlertType.ERROR, "Select a booking.").showAndWait();
             return;
@@ -31,6 +32,18 @@ public class CheckoutController {
             new Alert(Alert.AlertType.ERROR, "Checkout failed.").showAndWait();
             return;
         }
+        // fix: optionally remove guest on checkout
+        if (removeGuest) {
+            store.removeGuest(booking.getGuest().getGuestId());
+        }
+        // fix: persist immediately after checkout (no crash = data loss)
+        persistAll();
         new BillingThread(booking, onBillReady).start();
+    }
+
+    private void persistAll() {
+        PersistenceManager.save(store.getRooms(),    "rooms.dat");
+        PersistenceManager.save(store.getGuests(),   "guests.dat");
+        PersistenceManager.save(store.getBookings(), "bookings.dat");
     }
 }

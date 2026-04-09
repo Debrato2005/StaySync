@@ -6,10 +6,11 @@ import com.staysync.model.Booking;
 import javafx.geometry.Insets;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
-import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
@@ -28,17 +29,36 @@ public class CheckoutTab extends Tab {
         Button refreshBtn  = new Button("Refresh");
         Button checkoutBtn = new Button("Checkout Selected");
 
+        // fix: checkbox to optionally remove guest on checkout
+        CheckBox removeGuestBox = new CheckBox("Remove guest on checkout");
+
         refreshBtn.setOnAction(e -> refreshTable());
 
         checkoutBtn.setOnAction(e -> {
             Booking selected = table.getSelectionModel().getSelectedItem();
-            controller.checkout(selected, total -> {
-                refreshTable();
-                showBill(selected, total);
+            if (selected == null) {
+                new Alert(Alert.AlertType.ERROR, "Select a booking.").showAndWait();
+                return;
+            }
+
+            // fix: confirmation dialog before checkout
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                    "Checkout " + selected.getGuest().getName() + " from Room "
+                    + selected.getRoom().getRoomNumber() + "?",
+                    ButtonType.YES, ButtonType.NO);
+            confirm.setTitle("Confirm Checkout");
+            confirm.setHeaderText(null);
+            confirm.showAndWait().ifPresent(btn -> {
+                if (btn == ButtonType.YES) {
+                    controller.checkout(selected, removeGuestBox.isSelected(), total -> {
+                        refreshTable();
+                        showBill(selected, total);
+                    });
+                }
             });
         });
 
-        HBox buttons = new HBox(10, refreshBtn, checkoutBtn);
+        HBox buttons = new HBox(10, refreshBtn, checkoutBtn, removeGuestBox);
         buttons.setPadding(new Insets(10));
 
         table = buildTable();
@@ -53,7 +73,7 @@ public class CheckoutTab extends Tab {
         TableView<Booking> tv = new TableView<>();
 
         TableColumn<Booking, Integer> idCol = new TableColumn<>("Booking ID");
-        idCol.setCellValueFactory(new PropertyValueFactory<>("bookingId"));
+        idCol.setCellValueFactory(new javafx.scene.control.cell.PropertyValueFactory<>("bookingId"));
 
         TableColumn<Booking, String> guestCol = new TableColumn<>("Guest");
         guestCol.setCellValueFactory(data ->
@@ -81,23 +101,24 @@ public class CheckoutTab extends Tab {
     }
 
     private void showBill(Booking b, double total) {
-    long nights = b.getNights();
-    double effectiveRate = total / nights;
+        long nights = b.getNights();
+        double effectiveRate = total / Math.max(1, nights);
 
-    String msg = "Guest:          " + b.getGuest().getName()        + "\n" +
-                 "Room:           " + b.getRoom().getRoomNumber()    + "\n" +
-                 "Type:           " + b.getRoom().getRoomType()      + "\n" +
-                 "Check-in:       " + b.getCheckIn()                 + "\n" +
-                 "Check-out:      " + b.getCheckOut()                + "\n" +
-                 "Nights:         " + nights                         + "\n" +
-                 "Rate/Night:     ₹" + String.format("%.2f", effectiveRate) + "\n" +
-                 "Total Bill:     ₹" + String.format("%.2f", total);
+        String msg = "Guest:       " + b.getGuest().getName()     + "\n" +
+                     "Room:        " + b.getRoom().getRoomNumber() + "\n" +
+                     "Type:        " + b.getRoom().getRoomType()   + "\n" +
+                     "Check-in:    " + b.getCheckIn()              + "\n" +
+                     "Check-out:   " + b.getCheckOut()             + "\n" +
+                     "Nights:      " + nights                      + "\n" +
+                     "Rate/Night:  ₹" + String.format("%.2f", effectiveRate) + "\n" +
+                     "─────────────────────────\n" +
+                     "Total Bill:  ₹" + String.format("%.2f", total);
 
-    Alert alert = new Alert(Alert.AlertType.INFORMATION, msg);
-    alert.setTitle("Checkout Bill");
-    alert.setHeaderText("Checkout Successful");
-    alert.showAndWait();
-}
+        Alert alert = new Alert(Alert.AlertType.INFORMATION, msg);
+        alert.setTitle("Checkout Bill");
+        alert.setHeaderText("✅ Checkout Successful");
+        alert.showAndWait();
+    }
 
     public void refreshTable() {
         table.setItems(controller.getActiveBookings());

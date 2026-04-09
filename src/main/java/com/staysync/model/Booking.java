@@ -1,4 +1,5 @@
 package com.staysync.model;
+
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -14,10 +15,10 @@ public class Booking implements Serializable {
 
     public Booking(int bookingId, Guest guest, Room room, LocalDate checkIn, LocalDate checkOut) {
         this.bookingId = bookingId;
-        this.guest = guest;
-        this.room = room;
-        this.checkIn = checkIn;
-        this.checkOut = checkOut;
+        this.guest     = guest;
+        this.room      = room;
+        this.checkIn   = checkIn;
+        this.checkOut  = checkOut;
     }
 
     public long getNights() {
@@ -25,13 +26,15 @@ public class Booking implements Serializable {
     }
 
     public double calculateTotal() {
-    return room.calculateTariff((int) getNights());
-}
-    public int getBookingId() { return bookingId; }
-    public Guest getGuest() { return guest; }
-    public Room getRoom() { return room; }
-    public LocalDate getCheckIn() { return checkIn; }
-    public LocalDate getCheckOut() { return checkOut; }
-    public boolean isActive() { return active; }
-    public void setActive(boolean active) { this.active = active; }
+        return room.calculateTariff((int) getNights());
+    }
+
+    public int getBookingId()          { return bookingId; }
+    public Guest getGuest()            { return guest; }
+    public Room getRoom()              { return room; }
+    public LocalDate getCheckIn()      { return checkIn; }
+    public LocalDate getCheckOut()     { return checkOut; }
+    public boolean isActive()          { return active; }
+    public void setActive(boolean a)   { this.active = a; }
+    public void setCheckOut(LocalDate d) { this.checkOut = d; }  // fix: needed for early checkout billing
 }

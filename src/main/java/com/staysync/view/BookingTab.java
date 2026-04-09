@@ -29,6 +29,8 @@ public class BookingTab extends Tab {
     private TableView<Booking> table;
     private ComboBox<Guest> guestBox;
     private ComboBox<Room> roomBox;
+    private DatePicker checkInPicker;
+    private DatePicker checkOutPicker;
 
     public BookingTab() {
         setText("Bookings");
@@ -45,26 +47,27 @@ public class BookingTab extends Tab {
         roomBox.setPromptText("Select Available Room");
         roomBox.setMaxWidth(Double.MAX_VALUE);
 
-        DatePicker checkInPicker  = new DatePicker();
-        DatePicker checkOutPicker = new DatePicker();
+        checkInPicker  = new DatePicker();
+        checkOutPicker = new DatePicker();
         applyDateFormat(checkInPicker);
         applyDateFormat(checkOutPicker);
 
         checkInPicker.setDayCellFactory(picker -> new DateCell() {
-            @Override
-            public void updateItem(LocalDate date, boolean empty) {
+            @Override public void updateItem(LocalDate date, boolean empty) {
+                super.updateItem(date, empty);
+                setDisable(empty || date.isBefore(LocalDate.now()));
+            }
+        });
+        checkOutPicker.setDayCellFactory(picker -> new DateCell() {
+            @Override public void updateItem(LocalDate date, boolean empty) {
                 super.updateItem(date, empty);
                 setDisable(empty || date.isBefore(LocalDate.now()));
             }
         });
 
-        checkOutPicker.setDayCellFactory(picker -> new DateCell() {
-            @Override
-            public void updateItem(LocalDate date, boolean empty) {
-                super.updateItem(date, empty);
-                setDisable(empty || date.isBefore(LocalDate.now()));
-            }
-        });
+        // fix: refresh available rooms whenever dates change
+        checkInPicker.valueProperty().addListener((obs, o, n) -> refreshRoomBox());
+        checkOutPicker.valueProperty().addListener((obs, o, n) -> refreshRoomBox());
 
         Button refreshFormBtn = new Button("Refresh Lists");
         Button bookBtn        = new Button("Book Room");
@@ -91,9 +94,9 @@ public class BookingTab extends Tab {
         form.setHgap(10); form.setVgap(10);
         form.setPadding(new Insets(10));
         form.addRow(0, new Label("Guest:"),     guestBox);
-        form.addRow(1, new Label("Room:"),      roomBox);
-        form.addRow(2, new Label("Check-in:"),  checkInPicker);
-        form.addRow(3, new Label("Check-out:"), checkOutPicker);
+        form.addRow(1, new Label("Check-in:"),  checkInPicker);
+        form.addRow(2, new Label("Check-out:"), checkOutPicker);
+        form.addRow(3, new Label("Room:"),      roomBox);
 
         HBox buttons = new HBox(10, refreshFormBtn, bookBtn);
         buttons.setPadding(new Insets(10));
@@ -110,16 +113,21 @@ public class BookingTab extends Tab {
     private void applyDateFormat(DatePicker dp) {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy");
         dp.setConverter(new StringConverter<>() {
-            @Override
-            public String toString(LocalDate date) {
+            @Override public String toString(LocalDate date) {
                 return date != null ? fmt.format(date) : "";
             }
-            @Override
-            public LocalDate fromString(String s) {
+            @Override public LocalDate fromString(String s) {
                 return (s != null && !s.isBlank()) ? LocalDate.parse(s, fmt) : null;
             }
         });
         dp.setPromptText("dd/MM/yyyy");
+    }
+
+    private void refreshRoomBox() {
+        // fix: pass dates to get date-aware available rooms
+        roomBox.setItems(controller.getAvailableRooms(
+                checkInPicker.getValue(), checkOutPicker.getValue()));
+        roomBox.setValue(null);
     }
 
     private TableView<Booking> buildTable() {
@@ -162,6 +170,6 @@ public class BookingTab extends Tab {
 
     public void refreshDropdowns() {
         guestBox.setItems(controller.getAllGuests());
-        roomBox.setItems(controller.getAvailableRooms());
+        refreshRoomBox();
     }
 }

@@ -27,7 +27,7 @@ public class DashboardTab extends Tab {
         setText("Dashboard");
         setClosable(false);
         setContent(buildLayout());
-        refresh();
+
     }
 
     private VBox buildLayout() {

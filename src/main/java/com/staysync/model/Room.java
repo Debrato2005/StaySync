@@ -1,4 +1,5 @@
 package com.staysync.model;
+
 import java.io.Serializable;
 
 public abstract class Room implements Serializable {
@@ -16,13 +17,15 @@ public abstract class Room implements Serializable {
 
     public abstract double calculateTariff(int nights);
 
-    public int getRoomNumber() { return roomNumber; }
-    public RoomType getRoomType() { return roomType; }
+    public int getRoomNumber()       { return roomNumber; }
+    public RoomType getRoomType()    { return roomType; }
     public double getPricePerNight() { return pricePerNight; }
-    public boolean isAvailable() { return available; }
+    public boolean isAvailable()     { return available; }
     public void setAvailable(boolean available) { this.available = available; }
-@Override
-public String toString() {
-    return "Room " + roomNumber + " (" + roomType + ") - ₹" + pricePerNight;
-}
+    public void setPricePerNight(double price)  { this.pricePerNight = price; } // fix: for edit room
+
+    @Override
+    public String toString() {
+        return "Room " + roomNumber + " (" + roomType + ") - ₹" + pricePerNight;
+    }
 }
